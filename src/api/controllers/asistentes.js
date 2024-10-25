@@ -25,9 +25,21 @@ const mongoose = require('mongoose')
 
 const registrarAsistente = async (req, res, next) => {
   try {
-    const { eventosConfirmados, nombre, email } = req.body
+    const { eventosConfirmados, userName } = req.body
 
-    let asistenteExistente = await Asistente.findOne({ email: email })
+    let asistenteExistente = await Asistente.findOne({ userName: userName })
+
+    const evento = await Evento.findById(eventosConfirmados).populate(
+      'asistentes'
+    )
+
+    if (!evento) {
+      return res.status(400).json('Evento no encontrado')
+    }
+
+    if (evento.asistentes.length >= evento.capacidad) {
+      return res.status(400).json('El evento está lleno')
+    }
 
     if (asistenteExistente) {
       if (!asistenteExistente.eventosConfirmados) {
@@ -35,63 +47,81 @@ const registrarAsistente = async (req, res, next) => {
       }
 
       if (asistenteExistente.eventosConfirmados.includes(eventosConfirmados)) {
-        return res
-          .status(400)
-          .json('El asistente ya está registrado para este evento')
+        return res.status(400).json('Ya estás registrado en este evento')
       }
 
       asistenteExistente.eventosConfirmados.push(eventosConfirmados)
       await asistenteExistente.save()
-
-      const evento = await Evento.findById(eventosConfirmados).populate(
-        'asistentes'
-      )
-
-      if (!evento) {
-        return res.status(400).json('Evento no encontrado')
-      }
 
       if (!evento.asistentes.includes(asistenteExistente._id)) {
         evento.asistentes.push(asistenteExistente._id)
         await evento.save()
       }
 
-      return res.status(200).json(asistenteExistente)
+      return res.status(200).json({
+        asistenteExistente,
+        asistentesEvento: evento.asistentes.length,
+        capacidadMaxima: evento.capacidad
+      })
     }
     const newAsistente = new Asistente({
-      nombre: nombre,
-      email: email,
+      userName: userName,
       confirmedEvents: [eventosConfirmados]
     })
 
     const asistente = await newAsistente.save()
 
-    const evento = await Evento.findById(eventosConfirmados).populate(
-      'asistentes'
-    )
-    if (!evento) {
-      return res.status(400).json('Evento no encontrado')
-    }
-
     evento.asistentes.push(asistente._id)
     await evento.save()
 
-    await enviarCorreoConfirmacion(email, evento.nombre)
-
-    return res.status(201).json(asistente)
+    return res.status(201).json({
+      asistente,
+      asistentesEvento: evento.asistentes.length,
+      capacidadMaxima: evento.capacidad
+    })
   } catch (error) {
     console.error(error)
     return res.status(400).json('Error al registrar el asistente')
   }
 }
 
-const deleteAsistente = async (req, res, next) => {
+const deleteAsistente = async (req, res) => {
   try {
-    const { id } = req.params
-    const deleteAsistente = await Asistente.findByIdAndDelete(id)
-    return res.status(200).json(deleteAsistente)
+    const { eventosConfirmados, userName } = req.body
+
+    let asistenteExistente = await Asistente.findOne({ userName })
+
+    if (!asistenteExistente) {
+      return res.status(404).json('Usuario no encontrado')
+    }
+
+    const evento = await Evento.findById(eventosConfirmados).populate(
+      'asistentes'
+    )
+
+    if (!evento) {
+      return res.status(400).json('Evento no encontrado')
+    }
+
+    evento.asistentes = evento.asistentes.filter(
+      (id) => id.toString() !== asistenteExistente._id.toString()
+    )
+    await evento.save()
+
+    asistenteExistente.eventosConfirmados =
+      asistenteExistente.eventosConfirmados.filter(
+        (id) => id.toString() !== eventosConfirmados
+      )
+    await asistenteExistente.save()
+
+    return res.status(200).json({
+      message: 'Has salido del evento',
+      asistentesEvento: evento.asistentes.length,
+      capacidadMaxima: evento.capacidad
+    })
   } catch (error) {
-    return res.status(400).json('error en el delete')
+    console.error(error)
+    return res.status(400).json('Error al eliminar asistente del evento')
   }
 }
 

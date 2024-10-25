@@ -2,8 +2,7 @@ const mongoose = require('mongoose')
 
 const asistenteSchema = new mongoose.Schema(
   {
-    nombre: { type: String, required: true },
-    email: { type: String, required: true },
+    userName: { type: String, required: true },
     eventosConfirmados: [
       {
         type: mongoose.Types.ObjectId,

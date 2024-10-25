@@ -10,7 +10,7 @@ const asistentesRouter = require('express').Router()
 
 asistentesRouter.get('/', getAsistentes)
 asistentesRouter.get('/:id', getAsistentesById)
-asistentesRouter.post('/', registrarAsistente)
+asistentesRouter.post('/:id', isAuth, registrarAsistente)
 asistentesRouter.delete('/:id', isAuth, deleteAsistente)
 
 module.exports = asistentesRouter

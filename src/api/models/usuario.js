@@ -6,7 +6,7 @@ const usuarioSchema = new mongoose.Schema(
     password: { type: String, required: true },
     email: { type: String, required: true },
     edad: { type: String, required: true },
-    imagen: { type: String, required: true },
+    imagen: { type: String, required: false },
     favoritos: [
       { type: mongoose.Types.ObjectId, required: false, ref: 'eventos' }
     ],
